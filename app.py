@@ -1,16 +1,18 @@
 from flask import Flask, request, jsonify
 import requests
 import logging
+from datetime import datetime
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
+# Configuration
 API_URL = "https://messages.analyticalab.net/api/send"
 INSTANCE_ID = "67690EC01B604"
 ACCESS_TOKEN = "676897d9b52e5"
 AUTH_KEY = "ory_at_Im2hv5VzGhumvXxg7Q-eEjKIawo7bp97f0rv88nd6EE.1qnxMtHdPYTmXS66iJbECc8qmqm03N78GgbqO4F0MWk"
 
-def send_text_message(phone, message):
+def send_whatsapp_message(phone, message):
     payload = {
         "number": phone,
         "type": "text",
@@ -22,83 +24,102 @@ def send_text_message(phone, message):
         "Authorization": f"Bearer {AUTH_KEY}",
         "Content-Type": "application/json"
     }
-    response = requests.post(API_URL, headers=headers, json=payload)
-    app.logger.debug("WhatsApp API Response: %s", response.json())
-    return response.json()
+    try:
+        response = requests.post(API_URL, headers=headers, json=payload)
+        response.raise_for_status()
+        app.logger.debug("WhatsApp API Response: %s", response.json())
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        app.logger.error("WhatsApp API Error: %s", str(e))
+        raise
 
-def format_order_details(items):
-    order_details = ""
-    for item in items:
-        name = item.get('name', 'غير محدد')
-        quantity = item.get('quantity', 1)
-        price = item.get('total_price', {}).get('amount', 0)
-        subtotal = quantity * price
+def format_payment_method(method):
+    payment_methods = {
+        'cod': 'الدفع عند الاستلام',
+        'credit': 'البطاقة البنكية',
+        'bank_transfer': 'تحويل بنكي',
+        'apple_pay': 'Apple Pay',
+        'stc_pay': 'STC Pay'
+    }
+    return payment_methods.get(method, method)
 
-        order_details += (f"🛒 المنتج: {name}\n"
-                          f"🔢 الكمية: {quantity}\n"
-                          f"💰 السعر: {price} ريال لكل واحد\n"
-                          f"🔖 الإجمالي: {subtotal} ريال\n\n")
-    return order_details
+def format_address(address):
+    if not address:
+        return "غير محدد"
+    
+    parts = []
+    if address.get('shipping_address'):
+        parts.append(address['shipping_address'])
+    if address.get('city'):
+        parts.append(address['city'])
+    if address.get('postal_code'):
+        parts.append(address['postal_code'])
+        
+    return "، ".join(filter(None, parts))
 
-def process_order(order_data):
-    customer_name = order_data['data']['customer']['full_name']
-    phone = order_data['data']['customer']['mobile']
-    country_code = order_data['data']['customer']['mobile_code']
-    checkout_url = order_data['data']['urls']['customer']
-    admin_url = order_data['data']['urls']['admin']
-    amount = order_data['data']['amounts']['total']['amount']
-    currency = order_data['data']['amounts']['total'].get('currency', 'SAR')
-    status = order_data['data']['status']['name']
-    items = order_data['data'].get('items', [])
-    payment_method = order_data['data']['payment_method']
-    receipt_image = order_data['data']['receipt_image']
-    order_source = order_data['data']['source']
-    date = order_data['data']['date']['date']
+def process_order_created(order_data):
+    try:
+        data = order_data['data']
+        customer = data['customer']
+        full_phone = f"{customer['mobile_code']}{customer['mobile']}"
+        
+        message = (
+            f"أهلاً {customer['first_name']}، تم استلام طلبك بنجاح ✨\n\n"
+            f"رقم الطلب: {data['reference_id']}\n"
+            f"قيمة الطلب: {data['amounts']['total']['amount']} {data['amounts']['total']['currency']}\n"
+            f"طريقة الدفع: {format_payment_method(data['payment_method'])}\n\n"
+            f"عنوان التوصيل:\n"
+            f"{format_address(data.get('shipping', {}))}\n\n"
+            f"لمتابعة طلبك:\n"
+            f"{data['urls']['customer']}\n\n"
+        )
 
-    order_details = format_order_details(items)
+        if data.get('pickup_branch'):
+            message += f"وقت التجهيز المتوقع: {data['pickup_branch']['preparation_time']}\n\n"
 
-    if "paid" in status.lower() or "مدفوع" in status:
-        payment_message = "✅ تم الدفع بنجاح. لا توجد دفعات إضافية مطلوبة."
-    else:
-        payment_message = (f"💳 رابط الدفع: {checkout_url}\n"
-                           f"يرجى إكمال الدفع في أقرب وقت ممكن لتجنب إلغاء الطلب.")
+        store_name = data.get('store', {}).get('name', {}).get('ar', 'متجرنا')
+        message += f"شكراً لثقتك في {store_name} 🌟"
 
-    message = (f"🔔 إشعار الطلب\n"
-               f"--------------------------------------\n"
-               f"👤 العميل: {customer_name}\n"
-               f"📞 الهاتف: {country_code}{phone}\n"
-               f"🗓️ تاريخ الطلب: {date}\n"
-               f"📦 حالة الطلب: {status}\n"
-               f"💵 المبلغ الإجمالي: {amount} {currency}\n"
-               f"💳 طريقة الدفع: {payment_method}\n"
-               f"🧾 صورة الإيصال: {receipt_image}\n"
-               f"--------------------------------------\n\n"
-               f"📋 تفاصيل الطلب:\n"
-               f"{order_details}"
-               f"--------------------------------------\n"
-               f"{payment_message}\n\n"
-               f"🔗 رابط الطلب (الإدارة): {admin_url}\n"
-               f"📞 لخدمة العملاء، لا تتردد في الاتصال بنا.\n"
-               f"شكرًا لتعاملك معنا!")
+        return send_whatsapp_message(full_phone, message)
 
-    full_phone = f"{country_code}{phone}"
-    return send_text_message(full_phone, message)
+    except KeyError as e:
+        app.logger.error("Missing required field: %s", str(e))
+        raise
+    except Exception as e:
+        app.logger.error("Error processing order: %s", str(e))
+        raise
 
 @app.route('/webhook', methods=['POST'])
-def handle_webhook():
+def webhook_handler():
     try:
         data = request.get_json(force=True)
-        app.logger.debug("Received payload: %s", data)
+        app.logger.debug("Received webhook: %s", data)
 
-        if data and data['event'] == 'order.created':
-            response = process_order(data)
-            return jsonify({"status": "Message sent", "response": response})
+        event_handlers = {
+            'order.created': process_order_created
+            # Add other event handlers here as needed
+        }
 
-        return jsonify({"status": "ignored"})
+        event = data.get('event')
+        if event in event_handlers:
+            response = event_handlers[event](data)
+            return jsonify({
+                "status": "success",
+                "message": "Notification sent successfully",
+                "response": response
+            })
+
+        return jsonify({
+            "status": "ignored",
+            "message": f"Event {event} not handled"
+        })
 
     except Exception as e:
-        app.logger.error("Error: %s", str(e))
-        return jsonify({"status": "error", "message": str(e)})
+        app.logger.error("Webhook error: %s", str(e))
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
