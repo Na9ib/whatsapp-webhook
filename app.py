@@ -53,7 +53,6 @@ def process_order(order_data):
     payment_method = order_data['data']['payment_method']
     receipt_image = order_data['data']['receipt_image']
     order_source = order_data['data']['source']
-    device = order_data['data']['source_device']
     date = order_data['data']['date']['date']
 
     order_details = format_order_details(items)
@@ -68,7 +67,6 @@ def process_order(order_data):
                f"--------------------------------------\n"
                f"👤 العميل: {customer_name}\n"
                f"📞 الهاتف: {country_code}{phone}\n"
-               f"🛍️ مصدر الطلب: {order_source} عبر {device}\n"
                f"🗓️ تاريخ الطلب: {date}\n"
                f"📦 حالة الطلب: {status}\n"
                f"💵 المبلغ الإجمالي: {amount} {currency}\n"
