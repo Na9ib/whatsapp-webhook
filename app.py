@@ -26,19 +26,61 @@ def send_text_message(phone, message):
     app.logger.debug("WhatsApp API Response: %s", response.json())
     return response.json()
 
+def format_order_details(items):
+    order_details = ""
+    for item in items:
+        name = item.get('name', 'غير محدد')
+        quantity = item.get('quantity', 1)
+        price = item.get('total_price', {}).get('amount', 0)
+        subtotal = quantity * price
+
+        order_details += (f"🛒 المنتج: {name}\n"
+                          f"🔢 الكمية: {quantity}\n"
+                          f"💰 السعر: {price} ريال لكل واحد\n"
+                          f"🔖 الإجمالي: {subtotal} ريال\n\n")
+    return order_details
+
 def process_order(order_data):
     customer_name = order_data['data']['customer']['full_name']
     phone = order_data['data']['customer']['mobile']
     country_code = order_data['data']['customer']['mobile_code']
     checkout_url = order_data['data']['urls']['customer']
+    admin_url = order_data['data']['urls']['admin']
     amount = order_data['data']['amounts']['total']['amount']
+    currency = order_data['data']['amounts']['total'].get('currency', 'SAR')
     status = order_data['data']['status']['name']
+    items = order_data['data'].get('items', [])
+    payment_method = order_data['data']['payment_method']
+    receipt_image = order_data['data']['receipt_image']
+    order_source = order_data['data']['source']
+    device = order_data['data']['source_device']
+    date = order_data['data']['date']['date']
 
-    message = (f"مرحبا {customer_name}!\n\n"
-               f"تم استلام طلبك بنجاح.\n"
-               f"المبلغ الإجمالي: {amount} ريال\n"
-               f"حالة الطلب: {status}\n"
-               f"رابط الدفع والمتابعة: {checkout_url}\n\n"
+    order_details = format_order_details(items)
+
+    if "paid" in status.lower() or "مدفوع" in status:
+        payment_message = "✅ تم الدفع بنجاح. لا توجد دفعات إضافية مطلوبة."
+    else:
+        payment_message = (f"💳 رابط الدفع: {checkout_url}\n"
+                           f"يرجى إكمال الدفع في أقرب وقت ممكن لتجنب إلغاء الطلب.")
+
+    message = (f"🔔 إشعار الطلب\n"
+               f"--------------------------------------\n"
+               f"👤 العميل: {customer_name}\n"
+               f"📞 الهاتف: {country_code}{phone}\n"
+               f"🛍️ مصدر الطلب: {order_source} عبر {device}\n"
+               f"🗓️ تاريخ الطلب: {date}\n"
+               f"📦 حالة الطلب: {status}\n"
+               f"💵 المبلغ الإجمالي: {amount} {currency}\n"
+               f"💳 طريقة الدفع: {payment_method}\n"
+               f"🧾 صورة الإيصال: {receipt_image}\n"
+               f"--------------------------------------\n\n"
+               f"📋 تفاصيل الطلب:\n"
+               f"{order_details}"
+               f"--------------------------------------\n"
+               f"{payment_message}\n\n"
+               f"🔗 رابط الطلب (الإدارة): {admin_url}\n"
+               f"📞 لخدمة العملاء، لا تتردد في الاتصال بنا.\n"
                f"شكرًا لتعاملك معنا!")
 
     full_phone = f"{country_code}{phone}"
