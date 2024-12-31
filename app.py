@@ -85,8 +85,8 @@ def save_order_to_supabase(order_data):
             "last_name": order_data['data']['customer'].get('last_name', ''),
             "email": order_data['data']['customer'].get('email', ''),
             "phone": f"{order_data['data']['customer']['mobile_code']}{order_data['data']['customer']['mobile']}",
-            "city": order_data['data']['shipping']['city'],
-            "country": order_data['data']['shipping']['country']
+            "city": order_data['data']['shipping']['address']['city'],
+            "country": order_data['data']['shipping']['address']['country']
         }
         customer_response = supabase.table("customers").insert(customer_data).execute()
         customer_id = customer_response.data[0]['id']
@@ -274,8 +274,3 @@ def webhook_handler():
 # Start the application
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
-
-
