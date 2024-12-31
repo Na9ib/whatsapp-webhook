@@ -89,7 +89,7 @@ def process_order_created(order_data):
             f"💎 القيمة: {data['amounts']['total']['amount']} {data['amounts']['total']['currency']}\n"
             f"💳 طريقة الدفع: {format_payment_method(data['payment_method'])}\n\n"
             f"📍 عنوان التوصيل:\n"
-            f"{format_address(data.get('shipping', {}))}\n\n"
+            f"{format_address(data.get(['shipping']['address'], {}))}\n\n"
             f"🔍 لمتابعة طلبك الخاص:\n"
             f"{data['urls']['customer']}\n\n"
             f"نحن سعداء بخدمتك ونتطلع لتقديم تجربة استثنائية لك ✨\n"
