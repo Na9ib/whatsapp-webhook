@@ -9,8 +9,8 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 # Configuration
-SUPABASE_URL = "https://gkfomcjffulyxdkoeehn.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrZm9tY2pmZnVseXhka29lZWhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2NTY1MTcsImV4cCI6MjA1MTIzMjUxN30.XhSK8FeXcvkrUo_43vKiYMuwt2RXGVyCO42wOlU5ORQ"
+SUPABASE_URL = "https://chhiksvujaaoifrlvosm.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoaGlrc3Z1amFhb2lmcmx2b3NtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2NzYzMzAsImV4cCI6MjA1MTI1MjMzMH0.wk6TT5s6CMmvMA2wCThu0aLJM-X9DsVfl7kqqLOMfKY"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 API_URL = "https://messages.analyticalab.net/api/send"
