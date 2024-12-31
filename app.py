@@ -72,6 +72,42 @@ def format_status(status):
     emoji = status_emojis.get(status_slug, '📦')
     return f"{emoji} {status_name}"
 
+def process_order_created(order_data):
+    try:
+        data = order_data['data']
+        customer = data['customer']
+        full_phone = f"{customer['mobile_code']}{customer['mobile']}"
+        
+        store = data.get('store', {})
+        store_name = store.get('name', {}).get('ar') if isinstance(store.get('name'), dict) else ''
+        
+        message = (
+            f"مرحباً {customer['first_name']}! يسعدنا اختيارك لنا ✨\n\n"
+            f"📋 تفاصيل طلبك المميز:\n"
+            f"رقم الطلب: {data['reference_id']}\n"
+            f"حالة الطلب: {format_status(data['status'])}\n"
+            f"💎 القيمة: {data['amounts']['total']['amount']} {data['amounts']['total']['currency']}\n"
+            f"💳 طريقة الدفع: {format_payment_method(data['payment_method'])}\n\n"
+            f"📍 عنوان التوصيل:\n"
+            f"{format_address(data.get('shipping', {}))}\n\n"
+            f"🔍 لمتابعة طلبك الخاص:\n"
+            f"{data['urls']['customer']}\n\n"
+            f"نحن سعداء بخدمتك ونتطلع لتقديم تجربة استثنائية لك ✨\n"
+            f"فريق {store_name} 🌟"
+        )
+
+        if data.get('is_pending_payment'):
+            message += f"\n\nملاحظة: يرجى إكمال عملية الدفع خلال {data['pending_payment_ends_at']} ساعة 🕒"
+
+        return send_whatsapp_message(full_phone, message)
+
+    except KeyError as e:
+        app.logger.error("Missing required field: %s", str(e))
+        raise
+    except Exception as e:
+        app.logger.error("Error processing order: %s", str(e))
+        raise
+
 def process_order_updated(order_data):
     try:
         data = order_data['data']
