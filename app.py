@@ -1,17 +1,24 @@
 from flask import Flask, request, jsonify
+from supabase import create_client, Client
 import requests
 import logging
 from datetime import datetime
 
+# Initialize Flask app
 app = Flask(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 # Configuration
+SUPABASE_URL = "https://gkfomcjffulyxdkoeehn.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrZm9tY2pmZnVseXhka29lZWhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2NTY1MTcsImV4cCI6MjA1MTIzMjUxN30.XhSK8FeXcvkrUo_43vKiYMuwt2RXGVyCO42wOlU5ORQ"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 API_URL = "https://messages.analyticalab.net/api/send"
 INSTANCE_ID = "67690EC01B604"
 ACCESS_TOKEN = "676897d9b52e5"
 AUTH_KEY = "ory_at_Im2hv5VzGhumvXxg7Q-eEjKIawo7bp97f0rv88nd6EE.1qnxMtHdPYTmXS66iJbECc8qmqm03N78GgbqO4F0MWk"
 
+# Utility functions
 def send_whatsapp_message(phone, message):
     payload = {
         "number": phone,
@@ -46,7 +53,6 @@ def format_payment_method(method):
 def format_address(address):
     if not address:
         return "غير محدد"
-    
     parts = []
     if address.get('shipping_address'):
         parts.append(address['shipping_address'])
@@ -54,7 +60,6 @@ def format_address(address):
         parts.append(address['city'])
     if address.get('postal_code'):
         parts.append(address['postal_code'])
-        
     return "، ".join(filter(None, parts))
 
 def format_status(status):
@@ -72,7 +77,29 @@ def format_status(status):
     emoji = status_emojis.get(status_slug, '📦')
     return f"{emoji} {status_name}"
 
+def save_order_to_supabase(order_data):
+    try:
+        data = {
+            "event_type": order_data['event'],
+            "customer_phone": f"{order_data['data']['customer']['mobile_code']}{order_data['data']['customer']['mobile']}",
+            "customer_name": order_data['data']['customer']['first_name'],
+            "order_reference": order_data['data']['reference_id'],
+            "order_status": order_data['data']['status']['name'],
+            "payment_method": format_payment_method(order_data['data']['payment_method']),
+            "total_amount": order_data['data']['amounts']['total']['amount'],
+            "currency": order_data['data']['amounts']['total']['currency'],
+            "shipping_address": format_address(order_data['data'].get('shipping', {})),
+        }
+        response = supabase.table("orders").insert(data).execute()
+        app.logger.debug("Saved to Supabase: %s", response.data)
+        return response
+    except Exception as e:
+        app.logger.error("Error saving to Supabase: %s", str(e))
+        raise
+
+# Event Handlers
 def process_order_created(order_data):
+    save_order_to_supabase(order_data)
     try:
         data = order_data['data']
         customer = data['customer']
@@ -108,7 +135,10 @@ def process_order_created(order_data):
         app.logger.error("Error processing order: %s", str(e))
         raise
 
+
 def process_order_updated(order_data):
+    save_order_to_supabase(order_data)
+    # Existing WhatsApp message sending logic here
     try:
         data = order_data['data']
         customer = data['customer']
@@ -151,6 +181,7 @@ def process_order_updated(order_data):
         app.logger.error("Error processing order update: %s", str(e))
         raise
 
+# Webhook Route
 @app.route('/webhook', methods=['POST'])
 def webhook_handler():
     try:
@@ -167,7 +198,7 @@ def webhook_handler():
             response = event_handlers[event](data)
             return jsonify({
                 "status": "success",
-                "message": "Notification sent successfully",
+                "message": "Processed successfully",
                 "response": response
             })
 
@@ -183,5 +214,6 @@ def webhook_handler():
             "message": str(e)
         }), 500
 
+# Start the application
 if __name__ == '__main__':
     app.run(debug=True)
