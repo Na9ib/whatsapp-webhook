@@ -72,7 +72,7 @@ def format_status(status):
     emoji = status_emojis.get(status_slug, '📦')
     return f"{emoji} {status_name}"
 
-def process_order_created(order_data):
+def process_order_updated(order_data):
     try:
         data = order_data['data']
         customer = data['customer']
@@ -82,30 +82,37 @@ def process_order_created(order_data):
         store_name = store.get('name', {}).get('ar') if isinstance(store.get('name'), dict) else ''
         
         message = (
-            f"مرحباً {customer['first_name']}! يسعدنا اختيارك لنا ✨\n\n"
-            f"📋 تفاصيل طلبك المميز:\n"
+            f"مرحباً {customer['first_name']}! تم تحديث حالة طلبك ✨\n\n"
+            f"📋 تفاصيل الطلب:\n"
             f"رقم الطلب: {data['reference_id']}\n"
-            f"حالة الطلب: {format_status(data['status'])}\n"
+            f"🛒 حالة الطلب: {format_status(data['status'])}\n"
             f"💎 القيمة: {data['amounts']['total']['amount']} {data['amounts']['total']['currency']}\n"
             f"💳 طريقة الدفع: {format_payment_method(data['payment_method'])}\n\n"
             f"📍 عنوان التوصيل:\n"
-            f"{format_address(data.get(['shipping']['address'], {}))}\n\n"
-            f"🔍 لمتابعة طلبك الخاص:\n"
+            f"{format_address(data.get('shipping', {}))}\n\n"
+            f"🔍 تابع طلبك من هنا:\n"
             f"{data['urls']['customer']}\n\n"
-            f"نحن سعداء بخدمتك ونتطلع لتقديم تجربة استثنائية لك ✨\n"
-            f"فريق {store_name} 🌟"
+            f"نحن سعداء لخدمتك، فريق {store_name} 🌟"
         )
-
+        
         if data.get('is_pending_payment'):
-            message += f"\n\nملاحظة: يرجى إكمال عملية الدفع خلال {data['pending_payment_ends_at']} ساعة 🕒"
-
+            message += f"\n\nيرجى إكمال الدفع قبل {data['pending_payment_ends_at']} 🕒"
+        
+        if data['status']['slug'] == 'cancelled':
+            message += "\n\nنأسف لإبلاغك أن طلبك قد تم إلغاؤه ❌"
+        
+        if data.get('shipment'):
+            message += f"\n\n🚚 تتبع الشحنة: {data['shipment']['tracking_link']}"
+        
+        if data.get('rating_link'):
+            message += f"\n\n✨ قيم تجربتك معنا: {data['rating_link']}"
+        
         return send_whatsapp_message(full_phone, message)
-
     except KeyError as e:
         app.logger.error("Missing required field: %s", str(e))
         raise
     except Exception as e:
-        app.logger.error("Error processing order: %s", str(e))
+        app.logger.error("Error processing order update: %s", str(e))
         raise
 
 @app.route('/webhook', methods=['POST'])
@@ -115,8 +122,8 @@ def webhook_handler():
         app.logger.debug("Received webhook: %s", data)
 
         event_handlers = {
-            'order.created': process_order_created
-            # Add other event handlers here as needed
+            'order.created': process_order_created,
+            'order.updated': process_order_updated
         }
 
         event = data.get('event')
