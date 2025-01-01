@@ -181,6 +181,29 @@ def process_order_updated(order_data):
         app.logger.error("Error processing order update: %s", str(e))
         raise
 
+def process_customer_login(login_data):
+    try:
+        data = login_data['data']
+        customer = data['customer']
+        full_phone = f"{customer['mobile_code']}{customer['mobile']}"
+        
+        message = (
+            f"(يا هلا وغلا بمن لفانا، نورت المكان وزادنا شرف بحضورك 🌟)\n\n"
+            f"مرحباً بك يا *{customer['first_name']}* ❤️\n\n"
+            f"مجلسنا مجلسك ومتجرنا محلاك،\n\n"
+            f"لو احتجت أي خدمة أو استفسار، هذا رقم الواتساب تحت أمرك، وحياك الله دائماً 🌴😊"
+        )
+
+        return send_whatsapp_message(full_phone, message)
+
+    except KeyError as e:
+        app.logger.error("Missing required field: %s", str(e))
+        raise
+    except Exception as e:
+        app.logger.error("Error processing login: %s", str(e))
+        raise
+
+
 # Webhook Route
 @app.route('/webhook', methods=['POST'])
 def webhook_handler():
@@ -190,7 +213,8 @@ def webhook_handler():
 
         event_handlers = {
             'order.created': process_order_created,
-            'order.updated': process_order_updated
+            'order.updated': process_order_updated,
+            'customer.login': process_customer_login
         }
 
         event = data.get('event')
