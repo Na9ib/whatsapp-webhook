@@ -184,7 +184,7 @@ def process_order_updated(order_data):
 def process_customer_login(login_data):
     try:
         data = login_data['data']
-        customer = data['customer']
+        customer = data
         full_phone = f"{customer['mobile_code']}{customer['mobile']}"
         
         message = (
