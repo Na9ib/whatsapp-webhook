@@ -14,7 +14,7 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 API_URL = "https://messages.analyticalab.net/api/send"
-INSTANCE_ID = "67759C915AE15"
+INSTANCE_ID = "6776B4BE7EB93"
 ACCESS_TOKEN = "676897d9b52e5"
 AUTH_KEY = "ory_at_Im2hv5VzGhumvXxg7Q-eEjKIawo7bp97f0rv88nd6EE.1qnxMtHdPYTmXS66iJbECc8qmqm03N78GgbqO4F0MWk"
 
